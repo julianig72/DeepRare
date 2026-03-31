@@ -59,6 +59,8 @@ class Openai_api:
             return None
         
     def get_embedding(self, text: str, model="text-embedding-3-small") -> list[float]:
+        if not text or not text.strip():
+            text = "empty"
         return self.client.embeddings.create(input=[text], model=model).data[0].embedding
 
 class deepseek_api:
@@ -68,10 +70,12 @@ class deepseek_api:
                 api_key=api_key, 
                 base_url="https://api.deepseek.com",
                 )
-        if model == 'deepseek-v3-241226':
+        if model == 'deepseek-v3-241226' or 'v3' in model.lower() or 'chat' in model.lower():
             self.model = "deepseek-chat"
-        elif model == 'deepseek-r1-250120':
+        elif model == 'deepseek-r1-250120' or 'r1' in model.lower() or 'reasoner' in model.lower():
             self.model = "deepseek-reasoner"
+        else:
+            self.model = "deepseek-chat"
         
     def get_completion(self, system_prompt, prompt, seed=42):
         try:       

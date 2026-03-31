@@ -205,7 +205,7 @@ def GoogleSearchTool(
         return f"Error during Google search: {e}"
 
 # @tool
-def DuckDuckGoSearchTool(args, query: str, read_content: bool = True, return_num: int = 5, mini_handler=None):
+def DuckDuckGoSearchTool(args, query: str, mini_handler=None, read_content: bool = True, return_num: int = 5):
     """
     Use the DDGS (DuckDuckGo Search) to get search results. Optionally, fetch content from the links and summarize.
 
@@ -232,12 +232,14 @@ def DuckDuckGoSearchTool(args, query: str, read_content: bool = True, return_num
         search_results = []
 
         for result in results:
-            title = result.get('title')
-            snippet = result.get('snippet', 'No snippet available.')
-            link = result.get('link')
+            title = result.get('title', '')
+            snippet = result.get('body', result.get('snippet', 'No snippet available.'))
+            link = result.get('href', result.get('link'))
 
+            if not link:
+                search_results.append(f"Title: {title}\nSnippet: {snippet}")
+                continue
 
-            # If read_content is True, fetch and parse the content of the linked page
             if read_content:
                 page_content = fetch_page_content_and_summarize(args, link, mini_handler, False)
                 search_results.append(page_content)

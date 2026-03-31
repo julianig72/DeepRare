@@ -54,12 +54,6 @@ def get_orphanet_id_from_disease(args, result, embeds_disease, concept2id, orpha
                                  eval_model, eval_tokenizer, orphanet_data, patient_info, 
                                  search_depth, handler, mini_handler, tmp_save, similar_case_detailed):
     
-    # # ( use llm ) ask the agent to find ORPHANET ID
-    # disease_id = handler.get_completion("Please find all ORPHANET ID of the disease in the given diagnosis.", result)
-    
-    # ### Extract Disease List from the response, extract ORPHANET ID which begins with 'ORPHA:'
-    # disease_list = re.findall(r'ORPHA:\d+', disease_id)
-    
     diseases = re.findall(r'\*\*(.*?)\*\*', result)
     
     # if brackets in the disease name
@@ -71,12 +65,14 @@ def get_orphanet_id_from_disease(args, result, embeds_disease, concept2id, orpha
         else:
             diseases_new.append(diseases[i])
             
-    diseases_new = [disease.strip() for disease in diseases_new]
+    diseases_new = [disease.strip() for disease in diseases_new if disease.strip()]
     diseases = diseases_new
+
+    if not diseases or embeds_disease is None or not concept2id:
+        return [], '', tmp_save
     
     # use similarity matching agent to find ORPHANET ID
     with torch.no_grad():
-        # tokenize the queries
         encoded = eval_tokenizer(
             diseases, 
             truncation=True, 
@@ -85,7 +81,6 @@ def get_orphanet_id_from_disease(args, result, embeds_disease, concept2id, orpha
             max_length=36,
         )
 
-        # encode the queries (use the [CLS] last hidden states as the representations)
         embeds_word = eval_model(**encoded).last_hidden_state[:, 0, :]
         
     topk_indices, _ = topk_similarity(embeds_word, embeds_disease, k=1)
@@ -223,6 +218,9 @@ def get_orphanet_id_from_disease(args, result, embeds_disease, concept2id, orpha
 
 def similar_case_search(df, product_description, embeding_handler, n=3,  pprint=True):
 
+    if df is None or df.empty:
+        return df
+
     embed = embeding_handler(product_description)
     
     df['similarities'] = df.embedding.apply(lambda x: cosine_similarity(eval(x), embed))
@@ -234,7 +232,13 @@ def similar_case_search(df, product_description, embeding_handler, n=3,  pprint=
 
 def get_similar_cases(args, head_similar_cases, eval_model, eval_tokenizer, patient_info,  handler, topk):
     
+    if head_similar_cases is None or head_similar_cases.empty:
+        return ""
+
     query = [[patient_info, i] for i in list(head_similar_cases['case_report'])]
+
+    if not query:
+        return ""
 
     inputs = eval_tokenizer(query, 
                             padding=True, 
@@ -282,9 +286,25 @@ def make_diagnosis(args, i, patient, rare_prompt, orphanet_data, concept2id, orp
     # print(f"patient {i} system_prompt: {system_prompt}")
     print(f"patient {i} prompt: {prompt}")
   
-    ### second: get diagnosis API response        
-    diagnosis_api_response = PubCaseFinderSearchTool(args, phenotype_ids) + ' \n' + \
-                             PhenobrainAPITool(phenotype_ids)
+    ### second: get diagnosis API response
+    phenotype_id_list = [p.strip() for p in phenotype_ids.split(',') if p.strip()] if isinstance(phenotype_ids, str) else phenotype_ids
+    diagnosis_api_response = ""
+    if phenotype_id_list:
+        try:
+            diagnosis_api_response += PubCaseFinderSearchTool(args, phenotype_id_list)
+        except Exception as e:
+            print(f"PubCaseFinder error: {e}")
+            diagnosis_api_response += "PubCaseFinder: unavailable"
+        diagnosis_api_response += ' \n'
+        try:
+            phenobrain_result = PhenobrainAPITool(phenotype_id_list)
+            if phenobrain_result:
+                diagnosis_api_response += phenobrain_result
+        except Exception as e:
+            print(f"Phenobrain error: {e}")
+            diagnosis_api_response += "Phenobrain: unavailable"
+    else:
+        diagnosis_api_response = "No HPO IDs provided for API-based diagnosis."
     
     ### third: dynamic diagnosis response
     flag = True
@@ -304,13 +324,12 @@ def make_diagnosis(args, i, patient, rare_prompt, orphanet_data, concept2id, orp
         print('completed web search')
         ## LLM Diagnosis
         llm_response = handler.get_completion(system_prompt, prompt)
+        if not llm_response:
+            llm_response = "LLM diagnosis unavailable."
         print('completed llm search')
         
         ## Similar Cases
-        # retrieve by openai text-embedding-3-small to get top 20 similar cases
         head_similar_cases = similar_case_search(similar_cases, patient_info, embedding_handler, n=50)
-        
-        # retrieve by medcpt to get top 3 similar cases    
         similar_case_detailed = get_similar_cases(args, head_similar_cases, retr_model, retr_tokenizer, patient_info, handler, topk=3*search_depth )
 
         ### Summarize and diagnosis
@@ -362,6 +381,8 @@ Based on the above and your knowledge, enumerate the **top 5 most likely rare di
 
                     
         result = handler.get_completion(system_prompt, memory_1)
+        if not result:
+            result = "Unable to generate diagnosis. Please check API key and try again."
         
         ### Reflected Diagnosis
         judge_result, judgements, tmp_save = get_orphanet_id_from_disease(args, result, embeds_disease, concept2id, orpha2omim, 
@@ -429,6 +450,8 @@ Based on all the above, enumerate the top 5 most likely rare disease diagnoses f
 """
     
     final_diagnois = handler.get_completion(system_prompt, memory_2 )
+    if not final_diagnois:
+        final_diagnois = result
 
 
     ### Return the patient information

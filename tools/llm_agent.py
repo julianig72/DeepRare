@@ -9,14 +9,18 @@ def Summarize_Agent(text, handler):
     Returns:
         str: The summarized text.
     """
-    
-    # try:
-    output = handler("Assume you are a doctor, please summarize these medical article into a paragraph, only keep key message, mainly focus on the phenotype and related disease.", 
-                     text)
-    if 'not a medical-related page' in output.lower():
+    if not text or not text.strip():
         return ""
-    else:
-        return output
+    
+    try:
+        output = handler("Assume you are a doctor, please summarize these medical article into a paragraph, only keep key message, mainly focus on the phenotype and related disease.", 
+                         text)
+        if output and 'not a medical-related page' in output.lower():
+            return ""
+        return output or ""
+    except Exception as e:
+        print(f"Error in Summarize_Agent: {e}")
+        return text[:1000] if len(text) > 1000 else text
     # except:
     #     raise Exception("Error in summarizing the text.")
 

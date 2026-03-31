@@ -177,8 +177,11 @@ def get_webpage_text(args, url, screenshot=False):
         raise requests.exceptions.RequestException()
     
     except requests.exceptions.RequestException as e:
-        # print(f"Requests failed: {str(e)}")
-        return get_via_selenium(args, url)
+        try:
+            return get_via_selenium(args, url)
+        except Exception as selenium_err:
+            print(f"Selenium fallback also failed: {selenium_err}")
+            return ""
     
 def get_via_selenium(args, url):
     with browser_session(args) as driver: 
