@@ -1,169 +1,157 @@
-# [Nature] DeepRare: An Agentic System for Rare Disease Diagnosis with Traceable Reasoning
+# DeepRare (Fork): Rare Disease Diagnosis with Traceable Reasoning
 
-<div style='display:flex; gap: 0.6rem; '>
-<a href='https://arxiv.org/pdf/2506.20430'><img src='https://img.shields.io/badge/Arxiv-PDF-red'></a>
-<a href='https://huggingface.co/datasets/Angelakeke/DeepRare'><img src='https://img.shields.io/badge/DeepRare-Database-blue'></a>
-<!-- <a href='https://huggingface.co/datasets/Angelakeke/RaTE-Eval'><img src='https://img.shields.io/badge/RaTEEval-Benchmark-green'></a>  -->
-<a href='http://raredx.cn/doctor'><img src='https://img.shields.io/badge/DeepRare-WebApp-pink'></a>
-</div>
+This repository is a fork derived from the codebase released by the authors of the Nature paper:
 
-## Overview
-Rare diseases collectively affect over 300 million individuals worldwide, yet timely and accurate diagnosis remains a pervasive challenge. This is largely due to their clinical heterogeneity, low individual prevalence, and the limited familiarity most clinicians have with rare conditions. Here, we introduce DeepRare, the first rare disease diagnosis agentic system powered by a large language model (LLM), capable of processing heterogeneous clinical inputs. The system generates ranked diagnostic hypotheses for rare diseases, each accompanied by a transparent chain of reasoning that links intermediate analytic steps to verifiable medical evidence.
+**"An agentic system for rare disease diagnosis with traceable reasoning."**
 
-![](./figs/architecture.png)
+## Acknowledgement to the Original Authors
 
-DeepRare comprises three key components: a central host with a long-term memory module; specialized agent servers responsible for domain-specific analytical tasks integrating over 40 specialized tools and web-scale, up-to-date medical knowledge sources, ensuring access to the most current clinical information. This modular and scalable design enables complex diagnostic reasoning while maintaining traceability and adaptability. 
+We sincerely thank the original authors for making their implementation publicly available and for establishing a strong scientific and engineering foundation for AI-assisted rare disease diagnosis. This fork is directly enabled by their contribution.
 
-We evaluate DeepRare on eight datasets. The system demonstrates exceptional diagnostic performance among 2,919 diseases. In HPO-based evaluations, DeepRare significantly outperforms other 15 methods, like traditional bioinformatics diagnostic tools, LLMs, and other agentic systems, achieving an average Recall@1 score of 57.18% and surpassing the second-best method (Reasoning LLM) by a substantial margin of 23.79 percentage points. For multi-modal input scenarios, DeepRare achieves 70.60% at Recall@1 compared to Exomiser's 53.20% in 109 cases. Manual verification of reasoning chains by clinical experts achieves 95.40% agreements. Furthermore, the DeepRare system has been implemented as a user-friendly web application http://raredx.cn/doctor.
+## Scientific Concept Behind the Paper
 
-![](./figs/performance.png)
+The central contribution of DeepRare is the integration of:
 
-For more detailed about our pipeline, please refer to our paper.
+1. A large language model (LLM) capable of structured clinical reasoning over heterogeneous inputs.
+2. A multi-agent framework with specialized tools for phenotype extraction (HPO), biomedical evidence retrieval, and genomic analysis.
+3. A traceable diagnostic output in which each ranked hypothesis is supported by an explicit, verifiable evidence chain.
 
-## System requirements
+Rather than producing a single opaque prediction, the system generates ranked rare disease hypotheses and justifies them through clinically interpretable intermediate reasoning steps.
 
-### Hardware Requirements
-- **RAM**: Minimum 16GB (32GB recommended)
-- **Storage**: 100GB+ free disk space (SSD preferred)
-- **GPU**: Optional but recommended for faster model inference
-- **CPU**: Any modern 64-bit processor
+![Architecture](./figs/architecture.png)
 
-### Software Requirements
-- **OS**: Any 64-bit operating system
-- **Java**: Version 21 or above
-- **Python**: 3.8+ (for model inference)
+## Scope of This Fork
 
-**Note:** GPU is optional - models can run on CPU with slower performance. Exomiser tool requires the specified minimum resources for optimal functionality.
+In this fork:
 
-## LLM API Key Requirements
-The system supports multiple LLM providers. You need to obtain an API key from at least one of the following:
+1. The original repository was cloned and adapted for practical local execution.
+2. The genomic workflow was adjusted to reduce hard dependency on Exomizer in lightweight environments.
+3. Variant interpretation is performed through **VEP** (Ensembl Variant Effect Predictor) REST API calls when Exomizer is unavailable.
 
-#### OpenAI
-- **How to obtain**: Sign up at [platform.openai.com](https://platform.openai.com)
-- **Environment variable**: `OPENAI_API_KEY`
+### Exomizer Versus VEP in This Implementation
 
-#### Anthropic Claude
-- **How to obtain**: Sign up at [console.anthropic.com](https://console.anthropic.com)
-- **Environment variable**: `ANTHROPIC_API_KEY`
+- **Exomizer** is a robust gene-prioritization framework, but it typically requires a heavy local setup (Java runtime and large reference databases).
+- **VEP via REST API** provides a lighter annotation pathway without full local Exomizer deployment.
 
-#### Google Gemini
-- **How to obtain**: Sign up at [ai.google.dev](https://ai.google.dev)
-- **Environment variable**: `GOOGLE_API_KEY`
+In the current implementation, [diagnosisGene.py](diagnosisGene.py) attempts to run Exomizer when a valid JAR is configured. If it is not found, the pipeline falls back automatically to VEP-based analysis.
 
-#### DeepSeek
-- **How to obtain**: Sign up at [platform.deepseek.com](https://platform.deepseek.com)
-- **Environment variable**: `DEEPSEEK_API_KEY`
+### What VEP Is
 
-#### Local Models (Optional)
-- **Custom LLM Integration**: Support for locally hosted or custom LLM endpoints
-- **Setup**: Modify `api/interface.py` to adapt your custom LLM provider
-- **Implementation**: 
-  - Extend the base LLM interface class in `api/interface.py`
-  - Configure endpoint URL and authentication if needed
+**VEP (Variant Effect Predictor)**, maintained by Ensembl, annotates variants from VCF input and returns biologically relevant signals for prioritization, including:
 
+- molecular consequence classes (e.g., missense, frameshift)
+- predicted functional impact
+- in silico pathogenicity indicators (e.g., SIFT, PolyPhen)
+- population allele frequencies
+- ClinVar-related annotations, when available
 
-## Installation
+In this fork, these annotations are used to construct candidate variant rankings and generate an interpretable summary for downstream diagnostic reasoning.
 
-1. **Clone the repository and install dependencies:**
-   ```bash
-   git clone https://github.com/MAGIC-AI4Med/DeepRare.git
-   cd DeepRare
-   pip install -r requirements.txt
-   ```
+## System Requirements
 
-2. **Setup ChromeDriver:**
-   
-   Download ChromeDriver that matches your Chrome browser version:
-   - Visit [ChromeDriver Downloads](https://chromedriver.chromium.org/)
-   - Download the version compatible with your Chrome browser
-   - Extract the downloaded file
+### Hardware
 
-   **Install ChromeDriver (Linux/Mac):**
-   
-   Open terminal, navigate to the directory containing chromedriver, and run:
-   ```bash
-   sudo mv chromedriver /usr/local/bin/
-   sudo chmod +x /usr/local/bin/chromedriver
-   ```
-   
-   **Verify installation:**
-   ```bash
-   chromedriver --version
-   ```
+- RAM: 16 GB minimum (32 GB recommended)
+- Storage: 100 GB free space recommended
+- GPU: optional
 
-   **For Windows:**
-   ```bash
-   # Place chromedriver.exe in your desired location, e.g.:
-   C:\chromedriver\chromedriver.exe
-   ```
-   **Note:** Make sure ChromeDriver version matches your installed Chrome browser version.
+### Software
 
-3. **Install Exomizer （If required Gene Part）:**
+- Python 3.8+
+- Node.js 18+ (for the web interface)
+- Java 21+ (only required if Exomizer is used)
+- Chrome and a compatible ChromeDriver version
 
-   Following [Online document](https://exomiser.readthedocs.io/en/latest/)
-   
-   **Linux/Mac:**
-   ```bash
-    # download the distribution (won't take long)
-    wget https://data.monarchinitiative.org/exomiser/latest/exomiser-cli-14.1.0-distribution.zip
-    # download the data (this is ~20GB and will take a while)
-    wget https://data.monarchinitiative.org/exomiser/latest/2410_hg19.zip
-    wget https://data.monarchinitiative.org/exomiser/latest/2410_hg38.zip
-    wget https://data.monarchinitiative.org/exomiser/latest/2410_phenotype.zip
+## Local Setup (CLI Workflow)
 
-    # unzip the distribution and data files - this will create a directory called 'exomiser-cli-14.1.0' in the current working directory
-    unzip exomiser-cli-14.1.0-distribution.zip
-    unzip 2410_*.zip -d exomiser-cli-14.1.0/data
+### 1. Clone and Install Dependencies
 
-    # Check the application.properties are pointing to the correct versions:
-    #  exomiser.hg19.data-version=2410
-    #  exomiser.hg38.data-version=2410
-    #  exomiser.phenotype.data-version=2410
-   ```
-   
-   **Windows:**
-   - Download pre-built binaries from [Exomizer releases](https://bitbucket.org/magli143/exomizer/wiki/Home)
-   - Extract and add to your PATH
+```bash
+git clone <YOUR_FORK_URL>
+cd DeepRare
+python -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
+# Windows PowerShell
+# .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
-   **Verify installation:**
-   ```bash
-   exomizer --version
-   ```
+### 2. Download the Dataset
 
-## Reproduction Instruction
-Follow these steps to reproduce the results:
+```bash
+huggingface-cli download Angelakeke/DeepRare --repo-type=dataset --local-dir ./database
+```
 
-1. Download database files from huggingface:
-   ```bash
-   huggingface-cli download Angelakeke/DeepRare --repo-type=dataset --local-dir ./database
-   ```
-2. Add your LLM API key to `inference.sh`, `inference_gene.sh`, `eval.sh`.
-3. Configure ChromeDriver path in `inference.sh` and `inference_gene.sh`.
-4. Run the script:
-   ```bash
-   # For HPO input
-   bash inference.sh
-   # For HPO+Gene input
-   bash inference_gene.sh
-   # For Free-text preprocess
-   bash extract_hpo.sh
-   # For Evaluation
-   bash eval.sh
-   ```
+### 3. Configure ChromeDriver
 
+- Download a ChromeDriver version compatible with your Chrome installation.
+- Set its path in [inference.sh](inference.sh) and [inference_gene.sh](inference_gene.sh) using the `SERVICE_PATH` variable.
 
+### 4. Configure LLM API Keys
 
-## Web Application
+Add your keys in:
 
-Due to complex environment setup and LLM API requirements, we strongly recommend using our pre-deployed web application [DeepRare](http://deeprare.cn) for easy access and testing. 
+- [inference.sh](inference.sh)
+- [inference_gene.sh](inference_gene.sh)
+- [eval.sh](eval.sh)
 
-For web engineering implementation, we package this workflow using FastAPI with DeepSeek-V3 locally deployed on **16 Ascend 910B cards** serving as the central host to ensure system stability and data security. The system architecture employs a microservices design with Redis for session management and SQL databases for persistent data storage. More details can be found in our paper (Section 11.4).
+At least one valid provider key is required (OpenAI, DeepSeek, Gemini, or Claude), depending on the selected model.
 
+### 5. Run Inference
+
+```bash
+# HPO-based diagnosis
+bash inference.sh
+
+# HPO + VCF (gene-aware) diagnosis
+bash inference_gene.sh
+
+# HPO extraction from free text
+bash extract_hpo.sh
+
+# Evaluation
+bash eval.sh
+```
+
+## Local Gene Workflow with VEP
+
+Exomizer installation is not mandatory for initial gene-aware experiments if you use the VEP pathway:
+
+1. Prepare a valid VCF file.
+2. Run `bash inference_gene.sh`.
+3. If no valid Exomizer JAR is detected, the system will automatically use the VEP API fallback.
+
+To prioritize Exomizer explicitly, install its full environment and update `EXOMISER_JAR` in [inference_gene.sh](inference_gene.sh).
+
+## Local Web Deployment (Optional)
+
+### Backend (FastAPI)
+
+```bash
+cd web/backend
+pip install -r requirements.txt
+python run.py
+```
+
+API endpoint: `http://localhost:8000`
+
+### Frontend (React + Vite)
+
+```bash
+cd web/frontend
+npm install
+npm run dev
+```
+
+Web UI endpoint: `http://localhost:5173`
 
 ## Demo
+
 ![Demo](video/deeprare_compressed.gif)
 
-## Reference:
+## Paper Reference
+
 ```latex
 @article{zhao2026agentic,
   title={An agentic system for rare disease diagnosis with traceable reasoning},
@@ -175,5 +163,6 @@ For web engineering implementation, we package this workflow using FastAPI with 
 }
 ```
 
-## Acknowledgement:
-We gratefully acknowledge the developers and contributors of publicly available rare disease datasets, foundational research works, bioinformatics tools, and large language models that have collectively enabled our research. 
+## Note
+
+This fork preserves the core scientific direction of the original project while incorporating practical local-execution adjustments, including a VEP-based genomic analysis pathway when Exomizer is not available.

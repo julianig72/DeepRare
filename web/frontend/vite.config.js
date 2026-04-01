@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
-    react({ fastRefresh: false }),
+    react(),
     tailwindcss(),
   ],
   server: {
@@ -12,7 +12,5 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
-  optimizeDeps: {
-    force: true,
-  },
+
 })
